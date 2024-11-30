@@ -158,10 +158,11 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
 
         for phrase in phrases:
             # Addition: Phrase + Number
-            if phrase % cur_base == 0 and 0 < n - phrase < cur_max_addend:
+            if phrase % cur_base == 0 and 0 < n - phrase < cur_max_addend:              
                 addend = n - phrase
                 phrase_constructions = results[phrase]
                 addend_constructions = results[addend]
+
                 if phrase in exceptions_dict and in_ranges(n, exceptions_dict[phrase][0]):
                     phrase_constructions = [exceptions_dict[phrase][1]]
                 if addend in exceptions_dict and in_ranges(n, exceptions_dict[addend][0]):
@@ -173,12 +174,11 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
 
             # Subtraction: Phrase - Number
             if cur_max_subtrahand > 0:
-                
                 if phrase % cur_base == 0 and 0 < phrase - n < cur_max_subtrahand:
-                    
                     subtrahand = phrase - n
                     phrase_constructions = results[phrase]
                     subtrahand_constructions = results[subtrahand]
+
                     if phrase in exceptions_dict and in_ranges(n, exceptions_dict[phrase][0]):
                         phrase_constructions = [exceptions_dict[phrase][1]]
                     if subtrahand in exceptions_dict and in_ranges(n, exceptions_dict[subtrahand][0]):
@@ -198,21 +198,29 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
     
     for n in target_range:
         constructions = results[n]
-        print(constructions)
+        #print(constructions)
         if len(constructions) == 1 and len(final_results[n]) == 0:
             final_results[n] = constructions.pop()
     return final_results
 
 def in_ranges(number, range):
-    if not range or number < range[0]:
+    if not range:
         return False
+    if not isinstance(range[0], list) and number < range[0]:
+        return False
+    
+    # Check range contains list of ranges
+    if isinstance(range[0], list):
+        inside_range = False
+        for sub_range in range:
+            inside_range = inside_range or in_ranges(number, sub_range)
+        return inside_range
+    
     if range[0] <= number < range[1]:
         return True
     # Handle optional increment here
     if len(range) == 3:
-        # Adjust the number to be relative to the start of the range
         start, stop, inc = range
-        
         relative_number = (number - start) % inc
         return 0 <= relative_number < (stop - start)
     return False
@@ -231,7 +239,7 @@ def main():
     target_range = range(1, 100)
 
     nrows = language_grammars.shape[0]
-    for i in range(38,39):
+    for i in range(nrows):
         language = language_grammars.iloc[i]
 
         name = language['name']
