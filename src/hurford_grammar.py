@@ -9,15 +9,7 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
                      number_subtraction_maxs: list, phrase_subtraction: int, 
                      exceptions: list) -> Dict[int, List[str]]:
     """
-    Generate all possible constructions for numbers in the target range using the given grammar.
-    
-    Args:
-        digits: Set of basic digits allowed in the language
-        M: Set of multiplier values allowed in the language
-        target_range: Range of numbers to generate constructions for
-    
-    Returns:
-        Dictionary mapping each number to a list of its possible constructions
+    Generates constructions for numbers in the target range using the given grammar.
     """
     # Initialize results dictionaries. results can store multiple possible constructions of a number.
     # final_results stores the final construction, so there should only be one per number.
@@ -28,39 +20,56 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
     exceptions_dict = {exception[0]: [exception[1], exception[2]] for exception in exceptions}
 
     def get_curr_base(number: int):
+        """
+        Gets the current base for the given argument.
+        """
         possible_bases = []
         
         for elem in curr_bases:
             if in_ranges(number, elem[0]):
                 possible_bases.append(elem[1])
+
         if len(possible_bases) > 0:
             return possible_bases[-1]
         return -1
     
     def get_curr_max_addend(number: int):
+        """
+        Gets the current max addend (max NUMBER allowed in phrase + NUMBER) 
+        for the given argument.
+        """
         for elem in number_addition_maxs:
             if in_ranges(number, elem[0]):
                 return elem[1]
         return -1
     
     def get_curr_max_subtrahand(number: int):
+        """
+        Gets the current max subtrahand (max NUMBER allowed in phrase - NUMBER) 
+        for the given argument.
+        """
         for elem in number_subtraction_maxs:
             if in_ranges(number, elem[0]):
                 return elem[1]
         return -1
 
-    # Helper function to add a new construction if it's in our target range
-    def add_construction(value: int, expr: str, is_final = False):
-        if not is_final and value in results:
-            results[value].add(expr)
-        elif is_final and len(final_results[value]) == 0:
-            final_results[value] = expr
+    def add_construction(number: int, expr: str, is_final = False):
+        """
+        Adds a new construction (expr) for the given number.
+        is_final determines if this is the final construction of the number.
+        """
+        if not is_final and number in results:
+            results[number].add(expr)
+        elif is_final and len(final_results[number]) == 0:
+            final_results[number] = expr
 
     def add_phrase(n: int, cur_base: int):
+        """
+        Builds phrases for the language.
+        """
         if n % cur_base == 0:
             phrases.add(n)
             if n in exceptions_dict and in_ranges(n, exceptions_dict[n][0]):
-                #add_construction(n, exceptions_dict[n][1])
                 add_construction(n, exceptions_dict[n][1], is_final=True)
             if n in monomorphemic:
                 return
@@ -72,13 +81,11 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
                 if quotient in exceptions_dict and in_ranges(n, exceptions_dict[quotient][0]):
                     quotient_constructions = [exceptions_dict[quotient][1]]
                 if cur_base in exceptions_dict and in_ranges(n, exceptions_dict[cur_base][0]):
-                    base_constructions = [exceptions_dict[cur_base][1]] # should these be final_results[n] instead?
-
+                    base_constructions = [exceptions_dict[cur_base][1]]
                 for result in quotient_constructions:
                     for base_result in base_constructions:
                         expr = f"({result} * {base_result})"
                         add_construction(n, expr)
-                        #add_construction(n, expr, is_final=True)
 
     # Add Digits
     for d in digits:
@@ -104,9 +111,8 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
     for b in bases:
         phrases.add(b)
 
-    for n in target_range:
-        # Phrase = Number * M
-        # Constraint: For all N, M = X in Number * M
+    # Phrase = Number * M
+    for n in target_range:  
         cur_base = get_curr_base(n)
         if cur_base == -1:
             continue
@@ -127,12 +133,15 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
     # for phrase in new_phrases:
     #     phrases.add(phrase)
 
-    # Helper function to generate all possible constructions for a number
     def generate_constructions(n: int):
+        """
+        Generates constructions for the given number.
+        """
+        # No need to try to construct monomorphemic numbers
         if n in monomorphemic:
             return
 
-        constructions = []
+        # Get current base, max addend, and max subtrahand
         cur_base = get_curr_base(n)
         cur_max_addend = get_curr_max_addend(n)
         cur_max_subtrahand = get_curr_max_subtrahand(n)
@@ -146,16 +155,13 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
                 add_construction(n, exceptions_dict[n][1])
             return
         
+        # NOTE: Need to do this again for a language like Cahuilla which can't correctly construct 60 = (5 + 1) * 10
+        # in the first pass above. This is because it doesn't know that 6 = 5 + 1 since 6 is not in digits or bases.
         
         # Phrase = Number * M
-        # Constraint: For all N, M = X in Number * M
-        '''
-        Need to do this again for a language like Cahuilla which can't correctly construct 60 = (5 + 1) * 10
-        in the first pass above. This is because it doesn't know that 6 = 5 + 1 since 6 is not in digits or M.
-        '''
-       
         add_phrase(n, cur_base)
 
+        # Loop through phrases to build numbers from addition and subtraction
         for phrase in phrases:
             # Addition: Phrase + Number
             if phrase % cur_base == 0 and 0 < n - phrase < cur_max_addend:              
@@ -170,7 +176,7 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
                 for phrase_expr in phrase_constructions:
                     for addend_expr in addend_constructions:
                         expr = f"({phrase_expr} + {addend_expr})"
-                        constructions.append(expr)
+                        add_construction(n, expr)
 
             # Subtraction: Phrase - Number
             if cur_max_subtrahand > 0:
@@ -186,13 +192,10 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
                     for phrase_expr in phrase_constructions:
                         for subtrahand_expr in subtrahand_constructions:
                             expr = f"({phrase_expr} - {subtrahand_expr})"
-                            constructions.append(expr)
+                            add_construction(n, expr)
         
-        # Add constructions to results
-        for const in constructions:
-            add_construction(n, const)
 
-    # Generate constructions of 1 - 100    
+    # Generate constructions for numbers 1 - 100    
     for n in target_range:
         generate_constructions(n)
     
@@ -203,13 +206,19 @@ def generate_numbers(target_range: range, digits: list, bases: list, monomorphem
             final_results[n] = constructions.pop()
     return final_results
 
+
 def in_ranges(number, range):
+    """
+    Returns if the given number is within the given range. Range can be a sublist of more ranges
+    and each range is structured as [start, stop, increment] where stop is non-inclusive
+    and increment is an optional parameter.
+    """
     if not range:
         return False
     if not isinstance(range[0], list) and number < range[0]:
         return False
     
-    # Check range contains list of ranges
+    # Check if range contains a list of ranges
     if isinstance(range[0], list):
         inside_range = False
         for sub_range in range:
@@ -218,19 +227,13 @@ def in_ranges(number, range):
     
     if range[0] <= number < range[1]:
         return True
-    # Handle optional increment here
+    
+    # Handle optional increment parameter here
     if len(range) == 3:
         start, stop, inc = range
         relative_number = (number - start) % inc
         return 0 <= relative_number < (stop - start)
     return False
-
-# def check_exceptions(number, exceptions):
-#     indices = []
-#     for i in range(len(exceptions)):
-#         if exceptions[i][0][0] != 1 and exceptions[i][0][1] != 100 and in_ranges(number, exceptions[i][0]):
-#             indices.append(i)
-#     return indices
 
 def main():
     # Read language-specifics from file
@@ -240,8 +243,10 @@ def main():
 
     nrows = language_grammars.shape[0]
     for i in range(nrows):
+        # Get row
         language = language_grammars.iloc[i]
 
+        # Read each column
         name = language['name']
         digits = set(eval(language['digits']))
         bases = set(eval(language['bases']))
@@ -251,9 +256,12 @@ def main():
         number_subtraction_maxs = eval(language['number_subtraction_max'])
         phrase_subtraction = eval(language['phrase_subtraction'])
         exceptions = eval(language['exceptions'])
+
+        # Generate numbers in range for specific language
         final_results = generate_numbers(target_range, digits, bases, monomorphemic, curr_bases,
-                                   number_addition_maxs, number_subtraction_maxs, 
-                                   phrase_subtraction, exceptions)
+                                        number_addition_maxs, number_subtraction_maxs, 
+                                        phrase_subtraction, exceptions)
+        
         print(f"language {i}: {name}")
         for i in target_range:
             form = final_results[i]
@@ -261,27 +269,7 @@ def main():
                 form = "ERR"
             language_constructions = pd.concat([language_constructions, pd.DataFrame([[name, i, form]], 
                                                 columns=language_constructions.columns)], ignore_index=True)
-        # for num in results:
-        #     forms = results[num]
-            
-        #     if forms and num < 100:
-        #         # Only get constructions with min complexity.
-        #         # exception_idx = check_exceptions(num, exceptions)
-        #         # if len(exception_idx) > 0 and num not in monomorphemic:
-        #         #     substrings = [exceptions[idx][2] for idx in exception_idx]
-        #         #     correct_forms = [form for form in forms if all(sub in form for sub in substrings)]
-        #         #     min_word_count = min(len(form.split()) for form in correct_forms)
-        #         #     shortest_forms = [form for form in correct_forms if len(form.split()) == min_word_count]
-        #         #     for form in shortest_forms:
-        #         #         language_constructions = pd.concat([language_constructions, pd.DataFrame([[name, num, form]], 
-        #         #                                             columns=language_constructions.columns)], ignore_index=True)
-        #         # else:
-        #         min_word_count = min(len(form.split()) for form in forms)
-        #         shortest_forms = [form for form in forms if len(form.split()) == min_word_count]
-        #         for shortest_form in shortest_forms:
-        #             language_constructions = pd.concat([language_constructions, pd.DataFrame([[name, num, shortest_form]], 
-        #                                             columns=language_constructions.columns)], ignore_index=True)
-            
+    
     # Write data to csv file
     language_constructions.to_csv("data/language_specific_constructions.csv", index=False)
 
